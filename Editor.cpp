@@ -2,6 +2,7 @@
 #include "Document.h"
 #include <limits>
 #include <QPainter>
+#include <QScrollBar>
 #include <QTextLayout>
 
 Editor::Editor(QWidget *parent)
@@ -12,37 +13,68 @@ Editor::~Editor() {}
 
 void Editor::paintEvent(QPaintEvent *event)
 {
-  if (!mDoc)
-    return;
-
   QPainter painter(viewport());
 
-  qreal height = 0;
+  int vscroll = verticalScrollBar()->value();
+
+  int lines = 0;
+  QTextLayout layout;
+  layout.setCacheEnabled(true);
+  int docLines = mDoc->lineCount();
+  for (int i = 0; i < docLines; ++i) {
+    int layoutLines = layoutLine(i, layout);
+    if (lines + layoutLines > vscroll) {
+      qreal height = (lines - vscroll) * lineHeight();
+      layout.draw(&painter, QPointF(0, height));
+      if (height > viewport()->height())
+        break;
+    }
+
+    lines += layoutLines;
+  }
+
+  QAbstractScrollArea::paintEvent(event);
+}
+
+void Editor::resizeEvent(QResizeEvent *event)
+{
+  int lines = 0;
+  QTextLayout layout;
+  layout.setCacheEnabled(true);
+  int docLines = mDoc->lineCount();
+  for (int i = 0; i < docLines; ++i)
+    lines += layoutLine(i, layout);
+
+  int visibleLines = viewport()->height() / lineHeight();
+  verticalScrollBar()->setPageStep(visibleLines);
+  verticalScrollBar()->setRange(0, lines - visibleLines);
+
+  QAbstractScrollArea::resizeEvent(event);
+}
+
+qreal Editor::lineHeight() const
+{
+  return QFontMetricsF(font()).lineSpacing();
+}
+
+int Editor::layoutLine(int line, QTextLayout &layout) const
+{
+  layout.setText(mDoc->textAt(line));
+  layout.beginLayout();
+
   qreal max = std::numeric_limits<qreal>::max();
   qreal width = mWrap ? viewport()->width() : max;
 
-  QFont font("Consolas");
-  int lines = mDoc->lineCount();
-  for (int i = 0; i < lines; ++i) {
-    QTextLayout layout(mDoc->textAt(i), font, this);
-    layout.setCacheEnabled(true);
+  int lines = 0;
+  QTextLine textLine = layout.createLine();
+  while (textLine.isValid()) {
+    textLine.setLineWidth(width);
+    textLine.setPosition(QPointF(0, lines * lineHeight()));
 
-    qreal lineHeight = 0;
-    layout.beginLayout();
-    forever {
-      QTextLine line = layout.createLine();
-      if (!line.isValid())
-        break;
-
-      line.setLineWidth(width);
-
-      lineHeight += line.leading();
-      line.setPosition(QPointF(0, lineHeight));
-      lineHeight += line.height();
-    }
-    layout.endLayout();
-
-    layout.draw(&painter, QPointF(0, height));
-    height += lineHeight;
+    ++lines;
+    textLine = layout.createLine();
   }
+
+  layout.endLayout();
+  return lines;
 }
