@@ -6,6 +6,18 @@
 class Document;
 class QTextLayout;
 
+struct WrapOptions
+{
+  enum WrapMode {
+    WrapNone,   // Don't wrap.
+    WrapWidget, // Wrap at widget's edge.
+    WrapFixed   // Wrap at a fixed width.
+  };
+
+  WrapMode mode;
+  int width;
+};
+
 class Editor : public QAbstractScrollArea
 {
 public:
@@ -13,7 +25,7 @@ public:
   virtual ~Editor();
 
   void setDocument(Document *doc) { mDoc = doc; }
-  void setWrap(bool enabled) { mWrap = enabled; }
+  void setWrap(WrapOptions::WrapMode mode, int width = -1);
 
   virtual void paintEvent(QPaintEvent *event);
   virtual void resizeEvent(QResizeEvent *event);
@@ -23,7 +35,7 @@ private:
   int layoutLine(int line, QTextLayout &layout) const;
 
   Document *mDoc;
-  bool mWrap;
+  WrapOptions mWrap;
 };
 
 #endif

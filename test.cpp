@@ -53,7 +53,6 @@ int main(int argc, char *argv[])
   out << endl << doc << endl;
 
   Editor editor;
-  editor.setWrap(true);
   editor.setDocument(&doc);
   editor.resize(320, 240);
   editor.show();
