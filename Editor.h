@@ -18,6 +18,12 @@ struct WrapOptions
   int width;
 };
 
+struct Selection
+{
+  int anchor;
+  int position;
+};
+
 class Editor : public QAbstractScrollArea
 {
 public:
@@ -26,6 +32,7 @@ public:
 
   void setDocument(Document *doc) { mDoc = doc; }
   void setWrap(WrapOptions::WrapMode mode, int width = -1);
+  void setSelection(int anchor, int position);
 
   virtual void paintEvent(QPaintEvent *event);
   virtual void resizeEvent(QResizeEvent *event);
@@ -36,6 +43,7 @@ private:
 
   Document *mDoc;
   WrapOptions mWrap;
+  Selection mSelection;
 };
 
 #endif

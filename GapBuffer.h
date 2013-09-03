@@ -172,7 +172,7 @@ void GapBuffer<T>::ensureCapacity(int size)
 
   T *data = new T[mLength];
   memcpy(data, mData, sizeof(T) * len);
-  delete mData;
+  delete [] mData;
   mData = data;
 }
 

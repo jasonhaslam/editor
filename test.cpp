@@ -55,6 +55,8 @@ int main(int argc, char *argv[])
   Editor editor;
   editor.setDocument(&doc);
   editor.resize(320, 240);
+  editor.setWrap(WrapOptions::WrapWidget);
+  editor.setSelection(60, 128);
   editor.show();
 
   return app.exec();

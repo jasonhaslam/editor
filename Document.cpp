@@ -25,14 +25,23 @@ int Document::lineAt(int pos) const
   return line;
 }
 
-QString Document::textAt(int line) const
+int Document::lineEndPosition(int line) const
 {
-  int lines = lineCount();
-  if (line < 0 || line >= lines)
+  return (line < lineCount() - 1) ? mLines.at(line + 1) - 1 : length();
+}
+
+int Document::lineStartPosition(int line) const
+{
+  return mLines.at(line);
+}
+
+QString Document::lineText(int line) const
+{
+  if (line < 0 || line >= lineCount())
     return QString();
 
-  int pos = mLines.at(line);
-  return text(pos, (line < lines - 1) ? (mLines.at(line + 1) - pos) : -1);
+  int pos = lineStartPosition(line);
+  return text(pos, lineEndPosition(line) - pos);
 }
 
 QString Document::text(int pos, int len) const
@@ -47,6 +56,38 @@ QString Document::text(int pos, int len) const
   int sublen = gap - pos;
   return QString::fromUtf8(mText.constData(pos), sublen) %
          QString::fromUtf8(mText.constData(gap), len - sublen);
+}
+
+QByteArray Document::lineOffsets(int line) const
+{
+  if (line < 0 || line >= lineCount())
+    return QByteArray();
+  
+  int pos = lineStartPosition(line);
+  return offsets(pos, lineEndPosition(line) - pos);
+}
+
+QByteArray Document::offsets(int pos, int len) const
+{
+  if (len < 0)
+    len = length() - pos;
+
+  char index = 0;
+  QByteArray indexes;
+  indexes.reserve(len + 1);
+  for (int i = 0; i < len; ++i) {
+    unsigned char ch = mText.at(i);
+    indexes[i] = index;
+    if (ch >= 0xC0)
+      indexes[i++] = index;
+    if (ch >= 0xE0)
+      indexes[i++] = index;
+    if (ch >= 0xF0)
+      indexes[i++] = index;
+    ++index;
+  }
+
+  return indexes;
 }
 
 void Document::insert(int pos, const QString &text)
@@ -69,7 +110,7 @@ void Document::insert(int pos, const QString &text)
 void Document::remove(int pos, int len)
 {
   if (len < 0)
-    len = length();
+    len = length() - pos;
 
   int lines = lineCount();
   int line = lineAt(pos) + 1;
