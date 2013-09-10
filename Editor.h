@@ -2,6 +2,7 @@
 #define EDITOR_H
 
 #include <QAbstractScrollArea>
+#include <QTime>
 
 class Document;
 class QTextLayout;
@@ -36,6 +37,7 @@ public:
 
   virtual void paintEvent(QPaintEvent *event);
   virtual void resizeEvent(QResizeEvent *event);
+  virtual void timerEvent(QTimerEvent *event);
 
 private:
   qreal lineHeight() const;
@@ -44,6 +46,7 @@ private:
   Document *mDoc;
   WrapOptions mWrap;
   Selection mSelection;
+  bool mCaretVisible;
 };
 
 #endif
