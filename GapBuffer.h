@@ -117,7 +117,7 @@ T GapBuffer<T>::at(int pos) const
 template <typename T>
 T &GapBuffer<T>::operator[](int pos)
 {
-  assert(pos < length() && "index out of range");
+  assert(pos < length());
   return mData[pos < mGapPos ? pos : pos + mGapLen];
 }
 

@@ -19,13 +19,13 @@ public:
   int lineStartPosition(int line) const;
 
   QString lineText(int line) const;
-  QString text(int pos = 0, int len = -1) const;
+  QString text(int pos, int len) const;
 
-  QByteArray lineOffsets(int line) const;
-  QByteArray offsets(int pos = 0, int len = -1) const;
+  QByteArray lineCaretPositions(int line) const;
+  QByteArray caretPositions(int pos, int len) const;
 
   void insert(int pos, const QString &text);
-  void remove(int pos, int len = -1);
+  void remove(int pos, int len);
 
 private:
   GapBuffer<char> mText;

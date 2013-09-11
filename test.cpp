@@ -52,8 +52,7 @@ int main(int argc, char *argv[])
   doc.insert(0, str4);
   out << endl << doc << endl;
 
-  Editor editor;
-  editor.setDocument(&doc);
+  Editor editor(&doc);
   editor.resize(320, 240);
   editor.setWrap(WrapOptions::WrapWidget);
   editor.setSelection(60, 128);

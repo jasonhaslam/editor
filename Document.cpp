@@ -1,4 +1,5 @@
 #include "Document.h"
+#include <cassert>
 #include <QStringBuilder>
 
 Document::Document()
@@ -10,19 +11,18 @@ Document::~Document() {}
 
 int Document::lineAt(int pos) const
 {
-  int lines = lineCount();
-  int line = lines / 2;
-  while (line > 0 && line < lines - 1) {
-    if (pos < mLines.at(line)) {
-      line /= 2;
-    } else if (pos >= mLines.at(line + 1)) {
-      line += (lines - line) / 2;
+  int min = 0;
+  int max = lineCount() - 1;
+  while (min < max) {
+    int mid = (min + max) / 2;
+    if (mLines.at(mid) < pos) {
+      min = mid + 1;
     } else {
-      return line;
+      max = mid;
     }
   }
 
-  return line;
+  return (mLines.at(min) > pos) ? min - 1 : min;
 }
 
 int Document::lineEndPosition(int line) const
@@ -37,18 +37,13 @@ int Document::lineStartPosition(int line) const
 
 QString Document::lineText(int line) const
 {
-  if (line < 0 || line >= lineCount())
-    return QString();
-
+  assert(line >= 0 && line < lineCount());
   int pos = lineStartPosition(line);
-  return text(pos, lineEndPosition(line) - pos);
+  return text(pos, lineEndPosition(line) - pos + 1);
 }
 
 QString Document::text(int pos, int len) const
 {
-  if (len < 0)
-    len = length() - pos;
-
   int gap = mText.gapPosition();
   if (pos >= gap || pos + len < gap)
     return QString::fromUtf8(mText.constData(pos), len);
@@ -58,20 +53,15 @@ QString Document::text(int pos, int len) const
          QString::fromUtf8(mText.constData(gap), len - sublen);
 }
 
-QByteArray Document::lineOffsets(int line) const
+QByteArray Document::lineCaretPositions(int line) const
 {
-  if (line < 0 || line >= lineCount())
-    return QByteArray();
-  
+  assert(line >= 0 && line < lineCount());
   int pos = lineStartPosition(line);
-  return offsets(pos, lineEndPosition(line) - pos);
+  return caretPositions(pos, lineEndPosition(line) - pos + 1);
 }
 
-QByteArray Document::offsets(int pos, int len) const
+QByteArray Document::caretPositions(int pos, int len) const
 {
-  if (len < 0)
-    len = length() - pos;
-
   char index = 0;
   QByteArray indexes;
   indexes.reserve(len + 1);
@@ -109,9 +99,6 @@ void Document::insert(int pos, const QString &text)
 
 void Document::remove(int pos, int len)
 {
-  if (len < 0)
-    len = length() - pos;
-
   int lines = lineCount();
   int line = lineAt(pos) + 1;
   for (int i = line; i < lines; ++i) {
