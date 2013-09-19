@@ -60,11 +60,11 @@ void Editor::keyPressEvent(QKeyEvent *event)
 {
   switch (event->key()) {
     case Qt::Key_Left:
-      setPosition(position() - 1);
+      setPosition(mDoc->previousColumnPosition(position()));
       break;
 
     case Qt::Key_Right:
-      setPosition(position() + 1);
+      setPosition(mDoc->nextColumnPosition(position()));
       break;
   }
 
@@ -82,15 +82,13 @@ void Editor::paintEvent(QPaintEvent *event)
   int vscroll = verticalScrollBar()->value();
   int hscroll = horizontalScrollBar()->value();
 
-  int caretLine = mDoc->lineAt(mSelection.position);
-  int caretOffset = mSelection.position - mDoc->lineStartPosition(caretLine);
+  int caretPos = mSelection.position;
+  int caretLine = mDoc->lineAt(caretPos);
 
   int minPos = qMin(mSelection.anchor, mSelection.position);
   int maxPos = qMax(mSelection.anchor, mSelection.position);
   int minLine = mDoc->lineAt(minPos);
   int maxLine = mDoc->lineAt(maxPos);
-  int minOffset = minPos - mDoc->lineStartPosition(minLine);
-  int maxOffset = maxPos - mDoc->lineStartPosition(maxLine);
 
   // Layout through the end of the view.
   int lines = 0;
@@ -107,9 +105,8 @@ void Editor::paintEvent(QPaintEvent *event)
       QVector<QTextLayout::FormatRange> selections;
       if (minPos != maxPos && line >= minLine && line <= maxLine) {
         int len = layout.text().length();
-        QByteArray offsets = mDoc->lineCaretPositions(line);
-        int start = (line == minLine) ? offsets.at(minOffset) : 0;
-        int end = (line == maxLine) ? offsets.at(maxOffset) : len;
+        int start = (line == minLine) ? mDoc->columnAt(minPos) : 0;
+        int end = (line == maxLine) ? mDoc->columnAt(maxPos) : len;
 
         QTextLayout::FormatRange range;
         range.start = start;
@@ -122,10 +119,8 @@ void Editor::paintEvent(QPaintEvent *event)
       QPointF point(-hscroll, y);
       layout.draw(&painter, point, selections);
 
-      if (mCaretVisible && line == caretLine) {
-        QByteArray offsets = mDoc->lineCaretPositions(line);
-        layout.drawCursor(&painter, point, offsets.at(caretOffset));
-      }
+      if (mCaretVisible && line == caretLine)
+        layout.drawCursor(&painter, point, mDoc->columnAt(caretPos));
     }
 
     lines += layoutLines;

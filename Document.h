@@ -18,11 +18,12 @@ public:
   int lineEndPosition(int line) const;
   int lineStartPosition(int line) const;
 
+  int columnAt(int pos) const;
+  int nextColumnPosition(int pos) const;
+  int previousColumnPosition(int pos) const;
+
   QString lineText(int line) const;
   QString text(int pos, int len) const;
-
-  QByteArray lineCaretPositions(int line) const;
-  QByteArray caretPositions(int pos, int len) const;
 
   void insert(int pos, const QString &text);
   void remove(int pos, int len);

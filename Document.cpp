@@ -2,6 +2,13 @@
 #include <cassert>
 #include <QStringBuilder>
 
+namespace {
+bool isUtf8ContinuationByte(unsigned char ch)
+{
+  return ((ch & 0xC0) == 0x80);
+}
+} // anon. namespace
+
 Document::Document()
 {
   mLines.insert(0, 0);
@@ -35,6 +42,38 @@ int Document::lineStartPosition(int line) const
   return mLines.at(line);
 }
 
+int Document::columnAt(int pos) const
+{
+  // FIXME: Handle tab expansion.
+
+  int column = 0;
+  for (int i = lineStartPosition(lineAt(pos)); i < pos; ++i) {
+    if (!isUtf8ContinuationByte(mText.at(i)))
+      ++column;
+  }
+
+  return column;
+}
+
+int Document::nextColumnPosition(int pos) const
+{
+  int i = pos + 1;
+  int len = length();
+  while (i < len && isUtf8ContinuationByte(mText.at(i)))
+    ++i;
+
+  return i;
+}
+
+int Document::previousColumnPosition(int pos) const
+{
+  int i = pos - 1;
+  while (i > 0 && isUtf8ContinuationByte(mText.at(i)))
+    --i;
+
+  return i;
+}
+
 QString Document::lineText(int line) const
 {
   assert(line >= 0 && line < lineCount());
@@ -51,33 +90,6 @@ QString Document::text(int pos, int len) const
   int sublen = gap - pos;
   return QString::fromUtf8(mText.constData(pos), sublen) %
          QString::fromUtf8(mText.constData(gap), len - sublen);
-}
-
-QByteArray Document::lineCaretPositions(int line) const
-{
-  assert(line >= 0 && line < lineCount());
-  int pos = lineStartPosition(line);
-  return caretPositions(pos, lineEndPosition(line) - pos + 1);
-}
-
-QByteArray Document::caretPositions(int pos, int len) const
-{
-  char index = 0;
-  QByteArray indexes;
-  indexes.reserve(len + 1);
-  for (int i = 0; i < len; ++i) {
-    unsigned char ch = mText.at(i);
-    indexes[i] = index;
-    if (ch >= 0xC0)
-      indexes[i++] = index;
-    if (ch >= 0xE0)
-      indexes[i++] = index;
-    if (ch >= 0xF0)
-      indexes[i++] = index;
-    ++index;
-  }
-
-  return indexes;
 }
 
 void Document::insert(int pos, const QString &text)
