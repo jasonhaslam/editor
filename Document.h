@@ -19,12 +19,14 @@ public:
   int lineStartPosition(int line) const;
 
   int columnAt(int pos) const;
+  int columnPosition(int line, int column) const;
   int nextColumnPosition(int pos) const;
   int previousColumnPosition(int pos) const;
 
   QString lineText(int line) const;
   QString text(int pos, int len) const;
 
+  void append(const QString &text);
   void insert(int pos, const QString &text);
   void remove(int pos, int len);
 
@@ -39,7 +41,7 @@ inline QTextStream &operator<<(QTextStream &lhs, Document &rhs)
 {
   int lines = rhs.lineCount();
   for (int line = 0; line < lines; ++line)
-    lhs << rhs.lineText(line);
+    lhs << rhs.lineText(line) << endl;
   return lhs;
 }
 

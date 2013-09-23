@@ -47,9 +47,17 @@ int main(int argc, char *argv[])
     "dolor in reprehenderit in voluptate velit esse cillum dolore\n"
     "eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non\n"
     "proident, sunt in culpa qui officia deserunt mollit anim id est\n"
-    "laborum.";
+    "laborum.\n\n";
+
+  QString str5 =
+    "int main(int argc, const char *argv[]) {\n"
+    "\treturn 0;\n"
+    "}\n";
+
   Document doc;
-  doc.insert(0, str4);
+  doc.append(str4);
+  doc.append(str5);
+  doc.remove(6, 6);
   out << endl << doc << endl;
 
   Editor editor(&doc);

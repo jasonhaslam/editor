@@ -1,10 +1,10 @@
 #ifndef EDITOR_H
 #define EDITOR_H
 
+#include "Document.h"
 #include <QAbstractScrollArea>
 #include <QTime>
 
-class Document;
 class QTextLayout;
 
 struct WrapOptions
@@ -31,8 +31,10 @@ public:
   Editor(Document *doc, QWidget *parent = 0);
   virtual ~Editor();
 
-  int length() const;
-  int position() const;
+  int length() const { return mDoc->length(); }
+  int lineCount() const { return mDoc->lineCount(); }
+
+  int position() const { return mSelection.position; }
 
   void setWrap(WrapOptions::WrapMode mode, int width = -1);
 
@@ -45,13 +47,16 @@ public:
   virtual void timerEvent(QTimerEvent *event);
 
 private:
+  void startCaretTimer();
   int layoutLine(int line, QTextLayout &layout) const;
 
   Document *mDoc;
   WrapOptions mWrap;
   Selection mSelection;
 
+  int mCaretTimerId;
   bool mCaretVisible;
+
   qreal mLineHeight;
 };
 

@@ -44,7 +44,7 @@ int Document::lineStartPosition(int line) const
 
 int Document::columnAt(int pos) const
 {
-  // FIXME: Handle tab expansion.
+  // FIXME: Handle tab expansion?
 
   int column = 0;
   for (int i = lineStartPosition(lineAt(pos)); i < pos; ++i) {
@@ -53,6 +53,15 @@ int Document::columnAt(int pos) const
   }
 
   return column;
+}
+
+int Document::columnPosition(int line, int column) const
+{
+  int pos = lineStartPosition(line);
+  for (int i = 0; i < column; ++i)
+    pos = nextColumnPosition(pos);
+
+  return pos;
 }
 
 int Document::nextColumnPosition(int pos) const
@@ -78,7 +87,7 @@ QString Document::lineText(int line) const
 {
   assert(line >= 0 && line < lineCount());
   int pos = lineStartPosition(line);
-  return text(pos, lineEndPosition(line) - pos + 1);
+  return text(pos, lineEndPosition(line) - pos);
 }
 
 QString Document::text(int pos, int len) const
@@ -90,6 +99,11 @@ QString Document::text(int pos, int len) const
   int sublen = gap - pos;
   return QString::fromUtf8(mText.constData(pos), sublen) %
          QString::fromUtf8(mText.constData(gap), len - sublen);
+}
+
+void Document::append(const QString &text)
+{
+  insert(length(), text);
 }
 
 void Document::insert(int pos, const QString &text)
