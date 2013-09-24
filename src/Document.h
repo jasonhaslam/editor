@@ -19,9 +19,10 @@ public:
   int lineStartPosition(int line) const;
 
   int columnAt(int pos) const;
-  int columnPosition(int line, int column) const;
   int nextColumnPosition(int pos) const;
   int previousColumnPosition(int pos) const;
+
+  int positionAt(int line, int column) const;
 
   QString lineText(int line) const;
   QString text(int pos, int len) const;

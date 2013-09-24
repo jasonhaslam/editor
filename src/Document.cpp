@@ -55,15 +55,6 @@ int Document::columnAt(int pos) const
   return column;
 }
 
-int Document::columnPosition(int line, int column) const
-{
-  int pos = lineStartPosition(line);
-  for (int i = 0; i < column; ++i)
-    pos = nextColumnPosition(pos);
-
-  return pos;
-}
-
 int Document::nextColumnPosition(int pos) const
 {
   int i = pos + 1;
@@ -81,6 +72,15 @@ int Document::previousColumnPosition(int pos) const
     --i;
 
   return i;
+}
+
+int Document::positionAt(int line, int column) const
+{
+  int pos = lineStartPosition(line);
+  for (int i = 0; i < column; ++i)
+    pos = nextColumnPosition(pos);
+
+  return pos;
 }
 
 QString Document::lineText(int line) const

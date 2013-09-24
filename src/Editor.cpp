@@ -12,11 +12,40 @@ Editor::Editor(Document *doc, QWidget *parent)
     mCaretTimerId(0), mCaretVisible(false),
     mLineHeight(QFontMetricsF(font()).lineSpacing())
 {
+  // Set widget defaults.
+  viewport()->setCursor(Qt::IBeamCursor);
+
+  // Set editor defaults.
   setWrap(WrapNone);
   updateCaret();
 }
 
 Editor::~Editor() {}
+
+int Editor::positionAt(const QPoint &point) const
+{
+  int minY = qMax(0, point.y());
+  int vscroll = verticalScrollBar()->value();
+  int hscroll = horizontalScrollBar()->value();
+
+  // Layout to point.
+  int lines = 0;
+  QTextLayout layout;
+  int docLines = mDoc->lineCount();
+  for (int line = 0; line < docLines; ++line) {
+    qreal y = (lines - vscroll) * mLineHeight;
+    int layoutLines = layoutLine(line, layout);
+    if (y + (layoutLines * mLineHeight) > minY) {
+      QTextLine textLine = layout.lineAt((minY - y) / mLineHeight);
+      return mDoc->positionAt(line, textLine.xToCursor(hscroll + point.x()));
+    }
+
+    lines += layoutLines;
+  }
+
+  // FIXME: Return the correct x position in that last visible line.
+  return length();
+}
 
 void Editor::setWrap(WrapMode mode, int width)
 {
@@ -76,7 +105,7 @@ void Editor::keyPressEvent(QKeyEvent *event)
       int line = mDoc->lineAt(pos);
       int column = mDoc->columnAt(pos);
 
-      // Lay out the current line.
+      // Layout the current line.
       QTextLayout layout;
       layoutLine(line, layout);
       QTextLine textLine = layout.lineForTextPosition(column);
@@ -85,12 +114,12 @@ void Editor::keyPressEvent(QKeyEvent *event)
       if (textLine.lineNumber() > 0) {
         // This is a wrapped line.
         QTextLine prev = layout.lineAt(textLine.lineNumber() - 1);
-        setPosition(mDoc->columnPosition(line, prev.xToCursor(x)), mode);
+        setPosition(mDoc->positionAt(line, prev.xToCursor(x)), mode);
       } else if (line > 0) {
-        // Lay out the previous line.
+        // Layout the previous line.
         int layoutLines = layoutLine(line - 1, layout);
         QTextLine prev = layout.lineAt(layoutLines - 1);
-        setPosition(mDoc->columnPosition(line - 1, prev.xToCursor(x)), mode);
+        setPosition(mDoc->positionAt(line - 1, prev.xToCursor(x)), mode);
       } else {
         // This is the first line.
         setPosition(0, mode);
@@ -104,7 +133,7 @@ void Editor::keyPressEvent(QKeyEvent *event)
       int line = mDoc->lineAt(pos);
       int column = mDoc->columnAt(pos);
 
-      // Lay out the current line.
+      // Layout the current line.
       QTextLayout layout;
       int layoutLines = layoutLine(line, layout);
       QTextLine textLine = layout.lineForTextPosition(column);
@@ -113,12 +142,12 @@ void Editor::keyPressEvent(QKeyEvent *event)
       if (textLine.lineNumber() < layoutLines - 1) {
         // There's a wrapped line below this one.
         QTextLine next = layout.lineAt(textLine.lineNumber() + 1);
-        setPosition(mDoc->columnPosition(line, next.xToCursor(x)), mode);
+        setPosition(mDoc->positionAt(line, next.xToCursor(x)), mode);
       } else if (line < lineCount() - 1) {
-        // Lay out the next line.
+        // Layout the next line.
         layoutLine(line + 1, layout);
         QTextLine next = layout.lineAt(0);
-        setPosition(mDoc->columnPosition(line + 1, next.xToCursor(x)), mode);
+        setPosition(mDoc->positionAt(line + 1, next.xToCursor(x)), mode);
       } else {
         // This is the last line.
         setPosition(length(), mode);
@@ -128,10 +157,30 @@ void Editor::keyPressEvent(QKeyEvent *event)
     }
   }
 
-  // Blink the caret.
+  // FIXME: Constrain update?
   updateCaret();
+  viewport()->update();
+}
+
+void Editor::mouseMoveEvent(QMouseEvent *event)
+{
+  int pos = positionAt(event->pos());
+  if (pos >= 0)
+    setPosition(pos, KeepAnchor);
 
   // FIXME: Constrain update?
+  updateCaret();
+  viewport()->update();
+}
+
+void Editor::mousePressEvent(QMouseEvent *event)
+{
+  int pos = positionAt(event->pos());
+  if (pos >= 0)
+    setPosition(pos);
+
+  // FIXME: Constrain update?
+  updateCaret();
   viewport()->update();
 }
 
