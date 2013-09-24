@@ -8,37 +8,37 @@
 
 Editor::Editor(Document *doc, QWidget *parent)
   : QAbstractScrollArea(parent), mDoc(doc),
+    mCaretPeriod(QApplication::cursorFlashTime() / 2),
     mCaretTimerId(0), mCaretVisible(false),
     mLineHeight(QFontMetricsF(font()).lineSpacing())
 {
-  startCaretTimer();
-  setSelection(0, 0);
-  setWrap(WrapOptions::WrapNone);
+  setWrap(WrapNone);
+  updateCaret();
 }
 
 Editor::~Editor() {}
 
-void Editor::setWrap(WrapOptions::WrapMode mode, int width)
+void Editor::setWrap(WrapMode mode, int width)
 {
   mWrap.mode = mode;
   switch (mode) {
-    case WrapOptions::WrapNone:
+    case WrapNone:
       mWrap.width = std::numeric_limits<int>::max();
       break;
 
-    case WrapOptions::WrapWidget:
+    case WrapWidget:
       mWrap.width = viewport()->width();
       break;
 
-    case WrapOptions::WrapFixed:
+    case WrapFixed:
       mWrap.width = width;
       break;
   }
 }
 
-void Editor::setPosition(int position)
+void Editor::setPosition(int pos, MoveMode mode)
 {
-  setSelection(position, position);
+  setSelection((mode == MoveAnchor) ? pos : anchor(), pos);
 }
 
 void Editor::setSelection(int anchor, int position)
@@ -49,20 +49,30 @@ void Editor::setSelection(int anchor, int position)
 
 void Editor::keyPressEvent(QKeyEvent *event)
 {
+  bool shift = (event->modifiers() & Qt::ShiftModifier);
+  MoveMode mode = shift ? KeepAnchor : MoveAnchor;
+
+  bool deselect = (anchor() != position() && !shift);
+  int min = qMin(anchor(), position());
+  int max = qMax(anchor(), position());
+
   switch (event->key()) {
     case Qt::Key_Left: {
-      setPosition(mDoc->previousColumnPosition(position()));
+      int pos = deselect ? min : mDoc->previousColumnPosition(position());
+      setPosition(pos, mode);
       break;
     }
 
     case Qt::Key_Right: {
-      setPosition(mDoc->nextColumnPosition(position()));
+      int pos = deselect ? max : mDoc->nextColumnPosition(position());
+      setPosition(pos, mode);
       break;
     }
 
     case Qt::Key_Up: {
-      int line = mDoc->lineAt(position());
-      int column = mDoc->columnAt(position());
+      int pos = deselect ? min : position();
+      int line = mDoc->lineAt(pos);
+      int column = mDoc->columnAt(pos);
 
       // Lay out the current line.
       QTextLayout layout;
@@ -72,21 +82,25 @@ void Editor::keyPressEvent(QKeyEvent *event)
 
       if (textLine.lineNumber() > 0) {
         // This is a wrapped line.
-        QTextLine prevLine = layout.lineAt(textLine.lineNumber() - 1);
-        setPosition(mDoc->columnPosition(line, prevLine.xToCursor(x)));
+        QTextLine prev = layout.lineAt(textLine.lineNumber() - 1);
+        setPosition(mDoc->columnPosition(line, prev.xToCursor(x)), mode);
       } else if (line > 0) {
         // Lay out the previous line.
         int layoutLines = layoutLine(line - 1, layout);
-        QTextLine prevLine = layout.lineAt(layoutLines - 1);
-        setPosition(mDoc->columnPosition(line - 1, prevLine.xToCursor(x)));
+        QTextLine prev = layout.lineAt(layoutLines - 1);
+        setPosition(mDoc->columnPosition(line - 1, prev.xToCursor(x)), mode);
+      } else {
+        // This is the first line.
+        setPosition(0, mode);
       }
 
       break;
     }
 
     case Qt::Key_Down: {
-      int line = mDoc->lineAt(position());
-      int column = mDoc->columnAt(position());
+      int pos = deselect ? max : position();
+      int line = mDoc->lineAt(pos);
+      int column = mDoc->columnAt(pos);
 
       // Lay out the current line.
       QTextLayout layout;
@@ -96,21 +110,24 @@ void Editor::keyPressEvent(QKeyEvent *event)
 
       if (textLine.lineNumber() < layoutLines - 1) {
         // There's a wrapped line below this one.
-        QTextLine nextLine = layout.lineAt(textLine.lineNumber() + 1);
-        setPosition(mDoc->columnPosition(line, nextLine.xToCursor(x)));
+        QTextLine next = layout.lineAt(textLine.lineNumber() + 1);
+        setPosition(mDoc->columnPosition(line, next.xToCursor(x)), mode);
       } else if (line < lineCount() - 1) {
         // Lay out the next line.
         layoutLine(line + 1, layout);
-        QTextLine nextLine = layout.lineAt(0);
-        setPosition(mDoc->columnPosition(line + 1, nextLine.xToCursor(x)));
+        QTextLine next = layout.lineAt(0);
+        setPosition(mDoc->columnPosition(line + 1, next.xToCursor(x)), mode);
+      } else {
+        // This is the last line.
+        setPosition(length(), mode);
       }
 
       break;
     }
   }
 
-  // Ensure that caret is visible.
-  startCaretTimer();
+  // Blink the caret.
+  updateCaret();
 
   // FIXME: Constrain update?
   viewport()->update();
@@ -125,11 +142,11 @@ void Editor::paintEvent(QPaintEvent *event)
   int vscroll = verticalScrollBar()->value();
   int hscroll = horizontalScrollBar()->value();
 
-  int caretPos = mSelection.position;
+  int caretPos = position();
   int caretLine = mDoc->lineAt(caretPos);
 
-  int minPos = qMin(mSelection.anchor, mSelection.position);
-  int maxPos = qMax(mSelection.anchor, mSelection.position);
+  int minPos = qMin(anchor(), position());
+  int maxPos = qMax(anchor(), position());
   int minLine = mDoc->lineAt(minPos);
   int maxLine = mDoc->lineAt(maxPos);
 
@@ -172,7 +189,7 @@ void Editor::paintEvent(QPaintEvent *event)
 
 void Editor::resizeEvent(QResizeEvent *event)
 {
-  if (mWrap.mode == WrapOptions::WrapWidget)
+  if (mWrap.mode == WrapWidget)
     mWrap.width = viewport()->width();
 
   // Layout all lines.
@@ -206,7 +223,7 @@ void Editor::timerEvent(QTimerEvent *event)
   // Layout up to the caret line.
   int lines = 0;
   QTextLayout layout;
-  int caretLine = mDoc->lineAt(mSelection.position);
+  int caretLine = mDoc->lineAt(position());
   for (int line = 0; line < caretLine; ++line) {
     qreal y = (lines - vscroll) * mLineHeight;
     if (y > maxY) // The caret is beyond the view.
@@ -222,11 +239,11 @@ void Editor::timerEvent(QTimerEvent *event)
     viewport()->update(QRect(0, y, viewport()->width(), height));
 }
 
-void Editor::startCaretTimer()
+void Editor::updateCaret()
 {
-  mCaretVisible = true;
   killTimer(mCaretTimerId);
-  mCaretTimerId = startTimer(QApplication::cursorFlashTime() / 2);
+  mCaretVisible = (anchor() == position());
+  mCaretTimerId = mCaretVisible ? startTimer(mCaretPeriod) : 0;
 }
 
 int Editor::layoutLine(int line, QTextLayout &layout) const

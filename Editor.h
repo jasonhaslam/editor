@@ -7,38 +7,50 @@
 
 class QTextLayout;
 
-struct WrapOptions
+class Editor : public QAbstractScrollArea
 {
-  enum WrapMode {
+public:
+  enum WrapMode
+  {
     WrapNone,   // Don't wrap.
     WrapWidget, // Wrap at widget's edge.
     WrapFixed   // Wrap at a fixed width.
   };
 
-  WrapMode mode;
-  int width;
-};
+  enum MoveMode
+  {
+    MoveAnchor,
+    KeepAnchor
+  };
 
-struct Selection
-{
-  int anchor;
-  int position;
-};
+  struct WrapOptions
+  {
+    WrapOptions() : mode(WrapNone), width(0) {}
 
-class Editor : public QAbstractScrollArea
-{
-public:
+    WrapMode mode;
+    int width;
+  };
+
+  struct Selection
+  {
+    Selection() : anchor(0), position(0) {}
+
+    int anchor;
+    int position;
+  };
+
   Editor(Document *doc, QWidget *parent = 0);
   virtual ~Editor();
 
   int length() const { return mDoc->length(); }
   int lineCount() const { return mDoc->lineCount(); }
 
+  int anchor() const { return mSelection.anchor; }
   int position() const { return mSelection.position; }
 
-  void setWrap(WrapOptions::WrapMode mode, int width = -1);
+  void setWrap(WrapMode mode, int width = -1);
 
-  void setPosition(int position);
+  void setPosition(int position, MoveMode mode = MoveAnchor);
   void setSelection(int anchor, int position);
 
   virtual void keyPressEvent(QKeyEvent *event);
@@ -47,13 +59,14 @@ public:
   virtual void timerEvent(QTimerEvent *event);
 
 private:
-  void startCaretTimer();
+  void updateCaret();
   int layoutLine(int line, QTextLayout &layout) const;
 
   Document *mDoc;
   WrapOptions mWrap;
   Selection mSelection;
 
+  int mCaretPeriod;
   int mCaretTimerId;
   bool mCaretVisible;
 
