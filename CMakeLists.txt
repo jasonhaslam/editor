@@ -8,9 +8,9 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt5Widgets)
 
 set(SRCS
-  Document.cpp
-  Editor.cpp
+  src/Document.cpp
+  src/Editor.cpp
 )
 
-add_executable(test test.cpp ${SRCS})
+add_executable(test src/test.cpp ${SRCS})
 qt5_use_modules(test Widgets)
