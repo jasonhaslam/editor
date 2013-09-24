@@ -25,7 +25,9 @@ public:
 
   struct WrapOptions
   {
-    WrapOptions() : mode(WrapNone), width(0) {}
+    WrapOptions()
+      : mode(WrapNone), width(0)
+    {}
 
     WrapMode mode;
     int width;
@@ -33,7 +35,9 @@ public:
 
   struct Selection
   {
-    Selection() : anchor(0), position(0) {}
+    Selection()
+      : anchor(0), position(0)
+    {}
 
     int anchor;
     int position;
@@ -60,10 +64,13 @@ public:
 
 private:
   void updateCaret();
+  void rememberLastX(int pos);
   int layoutLine(int line, QTextLayout &layout) const;
 
   Document *mDoc;
   WrapOptions mWrap;
+
+  qreal mLastX;
   Selection mSelection;
 
   int mCaretPeriod;

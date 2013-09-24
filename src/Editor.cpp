@@ -7,7 +7,7 @@
 #include <QTextLayout>
 
 Editor::Editor(Document *doc, QWidget *parent)
-  : QAbstractScrollArea(parent), mDoc(doc),
+  : QAbstractScrollArea(parent), mDoc(doc), mLastX(0),
     mCaretPeriod(QApplication::cursorFlashTime() / 2),
     mCaretTimerId(0), mCaretVisible(false),
     mLineHeight(QFontMetricsF(font()).lineSpacing())
@@ -60,12 +60,14 @@ void Editor::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Left: {
       int pos = deselect ? min : mDoc->previousColumnPosition(position());
       setPosition(pos, mode);
+      rememberLastX(pos);
       break;
     }
 
     case Qt::Key_Right: {
       int pos = deselect ? max : mDoc->nextColumnPosition(position());
       setPosition(pos, mode);
+      rememberLastX(pos);
       break;
     }
 
@@ -78,7 +80,7 @@ void Editor::keyPressEvent(QKeyEvent *event)
       QTextLayout layout;
       layoutLine(line, layout);
       QTextLine textLine = layout.lineForTextPosition(column);
-      qreal x = textLine.cursorToX(column);
+      qreal x = qMax(textLine.cursorToX(column), mLastX);
 
       if (textLine.lineNumber() > 0) {
         // This is a wrapped line.
@@ -106,7 +108,7 @@ void Editor::keyPressEvent(QKeyEvent *event)
       QTextLayout layout;
       int layoutLines = layoutLine(line, layout);
       QTextLine textLine = layout.lineForTextPosition(column);
-      qreal x = textLine.cursorToX(column);
+      qreal x = qMax(textLine.cursorToX(column), mLastX);
 
       if (textLine.lineNumber() < layoutLines - 1) {
         // There's a wrapped line below this one.
@@ -244,6 +246,18 @@ void Editor::updateCaret()
   killTimer(mCaretTimerId);
   mCaretVisible = (anchor() == position());
   mCaretTimerId = mCaretVisible ? startTimer(mCaretPeriod) : 0;
+}
+
+void Editor::rememberLastX(int pos)
+{
+  int line = mDoc->lineAt(pos);
+  int column = mDoc->columnAt(pos);
+
+  QTextLayout layout;
+  layoutLine(line, layout);
+
+  QTextLine textLine = layout.lineForTextPosition(column);
+  mLastX = textLine.cursorToX(column);
 }
 
 int Editor::layoutLine(int line, QTextLayout &layout) const
