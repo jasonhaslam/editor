@@ -18,32 +18,36 @@ Editor::Editor(Document *doc, QWidget *parent)
   // Set editor defaults.
   setWrap(WrapNone);
   updateCaret();
+
+  // Initialize line cache.
+  mLines.insert(0, -1, doc->lineCount());
+
+  // Listen to document changes.
+  connect(doc, SIGNAL(linesChanged(int,int)), SLOT(updateLineCache(int,int)));
 }
 
 Editor::~Editor() {}
 
 int Editor::positionAt(const QPoint &point) const
 {
-  int minY = qMax(0, point.y());
-  int vscroll = verticalScrollBar()->value();
-  int hscroll = horizontalScrollBar()->value();
+  int y = qBound(0, point.y(), viewport()->height());
+  int viewLine = verticalScrollBar()->value() + (y / mLineHeight);
 
-  // Layout to point.
-  int lines = 0;
+  // Layout up to point.
+  int viewLines = 0;
   QTextLayout layout;
-  int docLines = mDoc->lineCount();
-  for (int line = 0; line < docLines; ++line) {
-    qreal y = (lines - vscroll) * mLineHeight;
+  int lines = mDoc->lineCount();
+  for (int line = 0; line < lines; ++line) {
     int layoutLines = layoutLine(line, layout);
-    if (y + (layoutLines * mLineHeight) > minY) {
-      QTextLine textLine = layout.lineAt((minY - y) / mLineHeight);
+    if (viewLines + layoutLines > viewLine) {
+      int hscroll = horizontalScrollBar()->value();
+      QTextLine textLine = layout.lineAt(viewLine - viewLines);
       return mDoc->positionAt(line, textLine.xToCursor(hscroll + point.x()));
     }
 
-    lines += layoutLines;
+    viewLines += layoutLines;
   }
 
-  // FIXME: Return the correct x position in that last visible line.
   return length();
 }
 
@@ -67,7 +71,17 @@ void Editor::setWrap(WrapMode mode, int width)
 
 void Editor::setPosition(int pos, MoveMode mode)
 {
-  setSelection((mode == MoveAnchor) ? pos : anchor(), pos);
+  int currentPos = position();
+  int currentAnchor = anchor();
+  int anchor = (mode == MoveAnchor) ? pos : currentAnchor;
+  if (pos == currentPos && anchor == currentAnchor)
+    return;
+
+  setSelection(anchor, pos);
+
+  // FIXME: Constrain update?
+  updateCaret();
+  viewport()->update();
 }
 
 void Editor::setSelection(int anchor, int position)
@@ -89,14 +103,14 @@ void Editor::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Left: {
       int pos = deselect ? min : mDoc->previousColumnPosition(position());
       setPosition(pos, mode);
-      rememberLastX(pos);
+      rememberLastX();
       break;
     }
 
     case Qt::Key_Right: {
       int pos = deselect ? max : mDoc->nextColumnPosition(position());
       setPosition(pos, mode);
-      rememberLastX(pos);
+      rememberLastX();
       break;
     }
 
@@ -156,32 +170,21 @@ void Editor::keyPressEvent(QKeyEvent *event)
       break;
     }
   }
-
-  // FIXME: Constrain update?
-  updateCaret();
-  viewport()->update();
 }
 
 void Editor::mouseMoveEvent(QMouseEvent *event)
 {
-  int pos = positionAt(event->pos());
-  if (pos >= 0)
-    setPosition(pos, KeepAnchor);
-
-  // FIXME: Constrain update?
-  updateCaret();
-  viewport()->update();
+  setPosition(positionAt(event->pos()), KeepAnchor);
 }
 
 void Editor::mousePressEvent(QMouseEvent *event)
 {
-  int pos = positionAt(event->pos());
-  if (pos >= 0)
-    setPosition(pos);
+  setPosition(positionAt(event->pos()));
+}
 
-  // FIXME: Constrain update?
-  updateCaret();
-  viewport()->update();
+void Editor::mouseReleaseEvent(QMouseEvent *event)
+{
+  rememberLastX();
 }
 
 void Editor::paintEvent(QPaintEvent *event)
@@ -285,9 +288,9 @@ void Editor::timerEvent(QTimerEvent *event)
 
   // Layout the caret line.
   qreal y = (lines - vscroll) * mLineHeight;
-  int height = layoutLine(caretLine, layout) * mLineHeight;
+  qreal height = layoutLine(caretLine, layout) * mLineHeight;
   if (y + height > 0)
-    viewport()->update(QRect(0, y, viewport()->width(), height));
+    viewport()->update(0, y, viewport()->width(), height);
 }
 
 void Editor::updateCaret()
@@ -297,8 +300,9 @@ void Editor::updateCaret()
   mCaretTimerId = mCaretVisible ? startTimer(mCaretPeriod) : 0;
 }
 
-void Editor::rememberLastX(int pos)
+void Editor::rememberLastX()
 {
+  int pos = position();
   int line = mDoc->lineAt(pos);
   int column = mDoc->columnAt(pos);
 
@@ -326,4 +330,13 @@ int Editor::layoutLine(int line, QTextLayout &layout) const
 
   layout.endLayout();
   return lines;
+}
+
+void Editor::updateLineCache(int line, int linesAdded)
+{
+  if (linesAdded > 0) {
+    mLines.insert(line, -1, linesAdded);
+  } else {
+    mLines.remove(line, -linesAdded);
+  }
 }

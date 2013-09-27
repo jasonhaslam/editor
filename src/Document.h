@@ -2,11 +2,14 @@
 #define DOCUMENT_H
 
 #include "GapBuffer.h"
+#include <QObject>
 #include <QString>
 #include <QTextStream>
 
-class Document
+class Document : public QObject
 {
+  Q_OBJECT
+
 public:
   Document();
   virtual ~Document();
@@ -30,6 +33,9 @@ public:
   void append(const QString &text);
   void insert(int pos, const QString &text);
   void remove(int pos, int len);
+
+signals:
+  void linesChanged(int line, int linesAdded);
 
 private:
   GapBuffer<char> mText;

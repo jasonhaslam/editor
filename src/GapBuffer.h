@@ -33,7 +33,7 @@ public:
   int length() const { return mLength - mGapLen; }
   int gapPosition() const { return mGapPos; }
 
-  void insert(int pos, T value);
+  void insert(int pos, T value, int len = 1);
   void insert(int pos, const T *data, int len);
 
   void remove(int pos, int len = 1);
@@ -68,15 +68,16 @@ GapBuffer<T>::~GapBuffer()
 }
 
 template <typename T>
-void GapBuffer<T>::insert(int pos, T value)
+void GapBuffer<T>::insert(int pos, T value, int len)
 {
   if (pos > length())
     return;
 
-  ensureCapacity(1);
+  ensureCapacity(len);
   moveGap(pos);
 
-  mData[pos] = value;
+  for (int i = 0; i < len; ++i)
+    mData[pos + i] = value;
   ++mGapPos;
   --mGapLen;
 }

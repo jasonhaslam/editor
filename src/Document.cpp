@@ -117,19 +117,27 @@ void Document::insert(int pos, const QString &text)
   for (int i = line; i < lines; ++i)
     mLines[line] += len;
 
+  int linesAdded = 0;
   for (int i = len - 1; i >= 0; --i) {
-    if (utf8.at(i) == '\n')
+    if (utf8.at(i) == '\n') {
+      ++linesAdded;
       mLines.insert(line, pos + i + 1);
+    }
   }
+
+  if (linesAdded > 0)
+    emit linesChanged(line, linesAdded);
 }
 
 void Document::remove(int pos, int len)
 {
+  int linesRemoved = 0;
   int lines = lineCount();
   int line = lineAt(pos) + 1;
   for (int i = line; i < lines; ++i) {
     int &linePos = mLines[i];
     if (linePos < pos + len) {
+      ++linesRemoved;
       mLines.remove(i);
     } else {
       linePos -= len;
@@ -137,4 +145,7 @@ void Document::remove(int pos, int len)
   }
 
   mText.remove(pos, len);
+
+  if (linesRemoved > 0)
+    emit linesChanged(line, -linesRemoved);
 }
